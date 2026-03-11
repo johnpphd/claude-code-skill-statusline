@@ -38,7 +38,7 @@ If you already have hooks, merge them into your existing arrays. See [`settings-
 Every skill that should appear in the statusline needs a one-liner init block. Add this to the top of your SKILL.md files, inside the initial Bash command block:
 
 ```bash
-_d="/tmp/.claude-$(printf '%s' "${CLAUDE_PROJECT_DIR:-$(pwd)}" | md5 -q 2>/dev/null || md5sum 2>/dev/null | cut -c1-12)"
+_d="/tmp/.claude-$(printf '%s' "${CLAUDE_PROJECT_DIR:-$(pwd)}" | (md5 -q 2>/dev/null || md5sum | cut -d' ' -f1) | cut -c1-12)"
 mkdir -p "$_d" 2>/dev/null
 echo "my-skill-name" > "$_d/.claude-skill-active"
 ```
