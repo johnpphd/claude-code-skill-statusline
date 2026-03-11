@@ -16,60 +16,22 @@ The obvious fix is to key the file by session ID. But **the Skill tool is intern
 
 ## Quick Install
 
-**1. Copy scripts to your project:**
+**1. Copy the `.claude/` directory to your project:**
 
 ```bash
-mkdir -p .claude/scripts
-cp scripts/_proj-hash.sh .claude/scripts/
-cp scripts/copy-skill-to-session.sh .claude/scripts/
-cp scripts/statusline.sh .claude/scripts/
-cp scripts/session-cleanup.sh .claude/scripts/
-chmod +x .claude/scripts/*.sh
+cp -r .claude/scripts/ /path/to/your-project/.claude/scripts/
+chmod +x /path/to/your-project/.claude/scripts/*.sh
 ```
 
-**2. Add hooks to `.claude/settings.json`:**
+**2. Add hooks to your project's `.claude/settings.json`:**
 
-Merge the contents of [`settings-example.json`](settings-example.json) into your project's `.claude/settings.json`. You need three entries:
+Merge the hook and statusLine entries from [`.claude/settings.json`](.claude/settings.json) into your project's settings. You need three entries:
 
 - **SessionStart** hook -- clears stale skill files on session start
 - **PostToolUse Bash** hook -- copies skill file to session-keyed path after skill init blocks
 - **statusLine** command -- the display script
 
-If you already have hooks, merge them into your existing arrays. The full example:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/scripts/session-cleanup.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/scripts/copy-skill-to-session.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "bash $CLAUDE_PROJECT_DIR/.claude/scripts/statusline.sh"
-  }
-}
-```
+If you already have hooks, merge them into your existing arrays. See [`settings-example.json`](settings-example.json) for the minimal config, or [`.claude/settings.json`](.claude/settings.json) for a working example.
 
 **3. Add init block to each SKILL.md:**
 
@@ -140,7 +102,7 @@ These approaches don't work. Documenting them here to save you the debugging tim
 
 ### Segments
 
-Edit `statusline.sh` to add, remove, or reorder segments. Each segment is a `printf` call with ANSI color codes.
+Edit `.claude/scripts/statusline.sh` to add, remove, or reorder segments. Each segment is a `printf` call with ANSI color codes.
 
 ### Colors
 
@@ -158,7 +120,7 @@ The default color scheme uses 256-color ANSI codes:
 | Cost | 178 | Yellow |
 | Token usage | 245 | Light gray |
 
-Change any color by modifying the `\033[38;5;NNN` codes in `statusline.sh`.
+Change any color by modifying the `\033[38;5;NNN` codes in `.claude/scripts/statusline.sh`.
 
 ### JSON Parser
 
