@@ -8,44 +8,49 @@ dev 8a3f1c02 ~/my-project [main] /agent-orchestrator [general-purpose] Opus 4.6 
  user session    cwd     branch    skill              agent type       model     cost      tokens
 ```
 
+## Install
+
+```bash
+git clone https://github.com/jpearson/claude-code-skill-statusline.git
+cd claude-code-skill-statusline
+bash install.sh
+```
+
+This installs to `~/.claude/` (user-level, works across all projects):
+
+- Copies scripts to `~/.claude/scripts/statusline/`
+- Merges hooks into `~/.claude/settings.json` (preserves your existing hooks)
+- Sets `statusLine` in `~/.claude/settings.json`
+
+Restart Claude Code after installing.
+
+## Uninstall
+
+```bash
+bash uninstall.sh
+```
+
+Removes scripts, hooks, and statusLine. Preserves all other settings.
+
+## SKILL.md Init Block
+
+For skills to appear in the statusline, each SKILL.md needs a one-liner init block at the top:
+
+```markdown
+<skill-init>
+Run this command silently at skill load: `_d="/tmp/.claude-$(printf '%s' "${CLAUDE_PROJECT_DIR:-$(pwd)}" | (md5 -q 2>/dev/null || md5sum | cut -d' ' -f1) | cut -c1-12)"; mkdir -p "$_d" 2>/dev/null; echo "my-skill-name" > "$_d/.claude-skill-active"`
+</skill-init>
+```
+
+Replace `my-skill-name` with the skill's display name (e.g., `agent-orchestrator`, `verify`).
+
+See [`skills/example-skill/SKILL.md`](skills/example-skill/SKILL.md) for a working example.
+
 ## The Problem
 
 Claude Code skills write their name to a temp file via a SKILL.md init block. When two sessions run in the same project, they overwrite the same file -- Session A shows Session B's skill.
 
 The obvious fix is to key the file by session ID. But **the Skill tool is internal to Claude Code** -- PreToolUse and PostToolUse hooks never fire for it. There's no direct hook observability into skill activation.
-
-## Quick Install
-
-**1. Copy the `.claude/` directory to your project:**
-
-```bash
-cp -r .claude/scripts/ /path/to/your-project/.claude/scripts/
-chmod +x /path/to/your-project/.claude/scripts/*.sh
-```
-
-**2. Add hooks to your project's `.claude/settings.json`:**
-
-Merge the hook and statusLine entries from [`.claude/settings.json`](.claude/settings.json) into your project's settings. You need three entries:
-
-- **SessionStart** hook -- clears stale skill files on session start
-- **PostToolUse Bash** hook -- copies skill file to session-keyed path after skill init blocks
-- **statusLine** command -- the display script
-
-If you already have hooks, merge them into your existing arrays. See [`settings-example.json`](settings-example.json) for the minimal config, or [`.claude/settings.json`](.claude/settings.json) for a working example.
-
-**3. Add init block to each SKILL.md:**
-
-Every skill that should appear in the statusline needs a one-liner init block. Add this to the top of your SKILL.md files, inside the initial Bash command block:
-
-```bash
-_d="/tmp/.claude-$(printf '%s' "${CLAUDE_PROJECT_DIR:-$(pwd)}" | (md5 -q 2>/dev/null || md5sum | cut -d' ' -f1) | cut -c1-12)"
-mkdir -p "$_d" 2>/dev/null
-echo "my-skill-name" > "$_d/.claude-skill-active"
-```
-
-Replace `my-skill-name` with the skill's display name (e.g., `agent-orchestrator`, `verify`).
-
-**4. Restart Claude Code** to pick up the new settings.
 
 ## How It Works
 
@@ -102,7 +107,7 @@ These approaches don't work. Documenting them here to save you the debugging tim
 
 ### Segments
 
-Edit `.claude/scripts/statusline.sh` to add, remove, or reorder segments. Each segment is a `printf` call with ANSI color codes.
+Edit `scripts/statusline.sh` (or `~/.claude/scripts/statusline/statusline.sh` after install) to add, remove, or reorder segments. Each segment is a `printf` call with ANSI color codes.
 
 ### Colors
 
@@ -120,14 +125,9 @@ The default color scheme uses 256-color ANSI codes:
 | Cost | 178 | Yellow |
 | Token usage | 245 | Light gray |
 
-Change any color by modifying the `\033[38;5;NNN` codes in `.claude/scripts/statusline.sh`.
-
 ### JSON Parser
 
-The scripts use `python3` for session ID extraction (from hook JSON) and `jq` for statusline field extraction. If you prefer one over the other:
-
-- **python3 only**: Replace `jq` calls with `python3 -c "import sys,json; ..."` equivalents
-- **jq only**: Replace `python3` calls with `jq -r '.session_id // empty'` (note: `jq` parses stdin as JSON directly)
+The scripts use `python3` for session ID extraction (from hook JSON) and `jq` for statusline field extraction.
 
 ## Requirements
 
