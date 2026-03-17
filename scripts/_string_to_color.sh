@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Port of maverick stringToColor (triple-hash djb2 -> hex -> 256-color ANSI).
+# Triple-hash djb2 -> hex -> 256-color ANSI.
 # Source this from statusline.sh.
 #
 # Exports:

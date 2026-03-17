@@ -133,7 +133,7 @@ The default color scheme uses 256-color ANSI codes:
 
 ### Project Color Indicator
 
-The `██` block at the start of the statusline is colored uniquely per project directory name. The color is derived by triple-hashing the directory basename using a djb2-variant hash (ported from the [Maverick V2 frontend](https://github.com/nicejuice-xyz/maverick-v2-frontend)), then mapping the resulting hex color to the nearest 256-color ANSI index. Brightness is clamped so the block is readable on dark terminals. The same directory name always produces the same color.
+The `██` block at the start of the statusline is colored uniquely per project directory name. The color is derived by triple-hashing the directory basename using a djb2-variant hash, then mapping the resulting hex color to the nearest 256-color ANSI index. Brightness is clamped so the block is readable on dark terminals. The same directory name always produces the same color.
 
 ### JSON Parser
 
