@@ -47,14 +47,14 @@ printf "\033[38;5;%sm██\033[0m " "$_proj_color"
 
 printf "\033[38;5;243m%s\033[0m" "$username"
 
-if [ -n "$session_id" ]; then
-  printf " \033[38;5;67m%s\033[0m" "$session_id"
-fi
-
 printf " \033[38;5;197m%s\033[0m" "$cwd"
 
 if [ -n "$git_branch" ]; then
   printf " \033[38;5;39m%s\033[0m" "$git_branch"
+fi
+
+if [ -n "$session_id" ]; then
+  printf " \033[38;5;67m%s\033[0m" "$session_id"
 fi
 
 if [ -n "$ACTIVE_SKILL" ]; then
