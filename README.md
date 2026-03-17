@@ -3,9 +3,10 @@
 Show which skill is active in your Claude Code statusline -- with correct session isolation when running multiple sessions simultaneously.
 
 ```
-dev 8a3f1c02 ~/my-project [main] /agent-orchestrator [general-purpose] Opus 4.6 $1.23 [ctx:45.2k in:602.1k out:89.3k]
- |    |          |          |        |                    |               |        |          |
- user session    cwd     branch    skill              agent type       model     cost      tokens
+██ dev ~/my-project [main] 8a3f1c02 /agent-orchestrator [general-purpose] Opus 4.6 $1.23 [ctx:45.2k in:602.1k out:89.3k]
+||  |       |         |      |         |                    |               |        |          |
+project user cwd    branch session   skill              agent type       model     cost      tokens
+color
 ```
 
 ## Install
@@ -34,15 +35,19 @@ Removes scripts, hooks, and statusLine. Preserves all other settings.
 
 ## SKILL.md Init Block
 
-For skills to appear in the statusline, each SKILL.md needs a one-liner init block at the top:
+For skills to appear in the statusline, each SKILL.md needs a one-liner init block at the top.
+
+**Easiest way:** Run this prompt in Claude Code and it will add the block to all your SKILL.md files automatically:
+
+> Add the statusline skill-init block to all my SKILL.md files. See ~/.claude/scripts/statusline/ for the format and skills/example-skill/SKILL.md for an example.
+
+**Manual way:** Add this to the top of each SKILL.md, replacing `my-skill-name` with the skill's display name (e.g., `agent-orchestrator`, `verify`):
 
 ```markdown
 <skill-init>
 Run this command silently at skill load: `_d="/tmp/.claude-$(printf '%s' "${CLAUDE_PROJECT_DIR:-$(pwd)}" | (md5 -q 2>/dev/null || md5sum | cut -d' ' -f1) | cut -c1-12)"; mkdir -p "$_d" 2>/dev/null; echo "my-skill-name" > "$_d/.claude-skill-active"`
 </skill-init>
 ```
-
-Replace `my-skill-name` with the skill's display name (e.g., `agent-orchestrator`, `verify`).
 
 See [`skills/example-skill/SKILL.md`](skills/example-skill/SKILL.md) for a working example.
 
@@ -115,6 +120,7 @@ The default color scheme uses 256-color ANSI codes:
 
 | Segment | Color Code | Description |
 |---------|-----------|-------------|
+| Project color | hash-derived | Unique per directory name |
 | Username | 243 | Gray |
 | Session ID | 67 | Dim cyan |
 | Working dir | 197 | Magenta |
@@ -124,6 +130,10 @@ The default color scheme uses 256-color ANSI codes:
 | Model | 103 | Muted purple |
 | Cost | 178 | Yellow |
 | Token usage | 245 | Light gray |
+
+### Project Color Indicator
+
+The `██` block at the start of the statusline is colored uniquely per project directory name. The color is derived by triple-hashing the directory basename using a djb2-variant hash, then mapping the resulting hex color to the nearest 256-color ANSI index. Brightness is clamped so the block is readable on dark terminals. The same directory name always produces the same color.
 
 ### JSON Parser
 

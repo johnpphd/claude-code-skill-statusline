@@ -7,6 +7,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/_proj-hash.sh"
+source "$SCRIPT_DIR/_string_to_color.sh"
 
 # Read stdin once, store for reuse
 INPUT=$(cat)
@@ -40,16 +41,20 @@ username=$(whoami)
 # Colors: 243=gray, 197=magenta, 39=cyan, 67=dim cyan, 114=muted green,
 #         214=orange, 103=muted purple, 178=yellow, 245=light gray
 
-printf "\033[38;5;243m%s\033[0m" "$username"
+# Project color indicator (deterministic per directory name)
+_proj_color=$(_project_color256 "${cwd##*/}")
+printf "\033[38;5;%sm██\033[0m " "$_proj_color"
 
-if [ -n "$session_id" ]; then
-  printf " \033[38;5;67m%s\033[0m" "$session_id"
-fi
+printf "\033[38;5;243m%s\033[0m" "$username"
 
 printf " \033[38;5;197m%s\033[0m" "$cwd"
 
 if [ -n "$git_branch" ]; then
   printf " \033[38;5;39m%s\033[0m" "$git_branch"
+fi
+
+if [ -n "$session_id" ]; then
+  printf " \033[38;5;67m%s\033[0m" "$session_id"
 fi
 
 if [ -n "$ACTIVE_SKILL" ]; then

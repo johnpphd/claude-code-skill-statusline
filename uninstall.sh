@@ -62,4 +62,23 @@ else
   warn "Could not update settings.json (missing jq or file)"
 fi
 
+# --- Remove shell prompt integration ---
+
+SHELL_MARKER="claude-statusline-project-color"
+
+# Check both possible RC files
+for _rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+  if [ -f "$_rc_file" ] && grep -q "$SHELL_MARKER" "$_rc_file" 2>/dev/null; then
+    cp "$_rc_file" "$_rc_file.bak"
+    # sed -i syntax differs: macOS needs '', GNU/Linux needs no arg
+    if [ "$(uname -s)" = "Darwin" ]; then
+      sed -i '' "/$SHELL_MARKER -- START/,/$SHELL_MARKER -- END/d" "$_rc_file"
+    else
+      sed -i "/$SHELL_MARKER -- START/,/$SHELL_MARKER -- END/d" "$_rc_file"
+    fi
+    info "Removed project color indicator from $_rc_file"
+    info "Backup saved to $_rc_file.bak"
+  fi
+done
+
 info "Uninstalled. Restart Claude Code to apply."
