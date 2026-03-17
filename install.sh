@@ -39,6 +39,7 @@ fi
 info "Installing scripts to $INSTALL_DIR/"
 mkdir -p "$INSTALL_DIR"
 cp "$REPO_DIR/scripts/_proj-hash.sh" "$INSTALL_DIR/"
+cp "$REPO_DIR/scripts/_string_to_color.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/scripts/copy-skill-to-session.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/scripts/session-cleanup.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/scripts/statusline.sh" "$INSTALL_DIR/"

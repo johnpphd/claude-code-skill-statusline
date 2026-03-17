@@ -7,6 +7,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/_proj-hash.sh"
+source "$SCRIPT_DIR/_string_to_color.sh"
 
 # Read stdin once, store for reuse
 INPUT=$(cat)
@@ -39,6 +40,10 @@ username=$(whoami)
 # --- Display ---
 # Colors: 243=gray, 197=magenta, 39=cyan, 67=dim cyan, 114=muted green,
 #         214=orange, 103=muted purple, 178=yellow, 245=light gray
+
+# Project color indicator (deterministic per directory name)
+_proj_color=$(_project_color256 "${cwd##*/}")
+printf "\033[38;5;%sm██\033[0m " "$_proj_color"
 
 printf "\033[38;5;243m%s\033[0m" "$username"
 
