@@ -11,13 +11,24 @@
         ]
       }
     ],
-    "PostToolUse": [
+    "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Skill",
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/scripts/statusline/copy-skill-to-session.sh",
+            "command": "bash ~/.claude/scripts/statusline/mark-skill-active.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/statusline/mark-skill-on-prompt.sh",
             "timeout": 5
           }
         ]

@@ -36,19 +36,22 @@ if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
   cp "$SETTINGS" "$SETTINGS.bak"
   info "Backup saved to $SETTINGS.bak"
 
+  # Covers the current hooks and the PostToolUse Bash hook that older
+  # versions installed, so uninstalling after a skipped upgrade is clean.
   JQ_FILTER=$(cat <<'JQEOF'
-    (if .hooks.SessionStart then
-      .hooks.SessionStart |= map(
-        select(.hooks | all((.command == "bash ~/.claude/scripts/statusline/session-cleanup.sh") | not))
-      )
-    else . end) |
-    (if .hooks.PostToolUse then
-      .hooks.PostToolUse |= map(
-        select(.hooks | all((.command == "bash ~/.claude/scripts/statusline/copy-skill-to-session.sh") | not))
-      )
-    else . end) |
-    (if .hooks.SessionStart == [] then del(.hooks.SessionStart) else . end) |
-    (if .hooks.PostToolUse == [] then del(.hooks.PostToolUse) else . end) |
+    def drop($event; $cmd):
+      if .hooks[$event] then
+        .hooks[$event] |= (
+          map(.hooks |= map(select(.command != $cmd)))
+          | map(select(.hooks | length > 0))
+        ) |
+        (if .hooks[$event] == [] then del(.hooks[$event]) else . end)
+      else . end;
+
+    drop("SessionStart"; "bash ~/.claude/scripts/statusline/session-cleanup.sh") |
+    drop("PreToolUse"; "bash ~/.claude/scripts/statusline/mark-skill-active.sh") |
+    drop("UserPromptSubmit"; "bash ~/.claude/scripts/statusline/mark-skill-on-prompt.sh") |
+    drop("PostToolUse"; "bash ~/.claude/scripts/statusline/copy-skill-to-session.sh") |
     (if .hooks == {} then del(.hooks) else . end) |
     (if .statusLine.command == "bash ~/.claude/scripts/statusline/statusline.sh"
      then del(.statusLine)

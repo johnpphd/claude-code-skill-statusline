@@ -10,13 +10,13 @@ _HASH=$(printf '%s' "$_PROJ_DIR" | md5 -q 2>/dev/null || printf '%s' "$_PROJ_DIR
 CLAUDE_TMPDIR="/tmp/.claude-${_HASH:0:12}"
 mkdir -p "$CLAUDE_TMPDIR"
 
-# Read active skill: session-scoped first, fall back to project-scoped.
+# Read the active skill for one session. No session ID means no skill, since a
+# shared fallback would show one session's skill in another.
 # Usage: _read_skill "session_id"
 _read_skill() {
-  local sid="${1:-shared}"
+  local sid="$1"
+  [ -n "$sid" ] || return 0
   local sf="$CLAUDE_TMPDIR/.claude-skill-active-${sid}"
-  local pf="$CLAUDE_TMPDIR/.claude-skill-active"
-  if [ -f "$sf" ]; then cat "$sf"
-  elif [ -f "$pf" ]; then cat "$pf"
-  fi
+  [ -f "$sf" ] && cat "$sf"
+  return 0
 }
