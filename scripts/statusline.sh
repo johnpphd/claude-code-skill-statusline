@@ -19,7 +19,7 @@ try: print(json.load(sys.stdin).get('session_id',''))
 except: print('')
 " 2>/dev/null)
 
-ACTIVE_SKILL=$(_read_skill "${_session_id:-shared}")
+ACTIVE_SKILL=$(_read_skill "$_session_id")
 
 # Extract fields from JSON
 agent=$(echo "$INPUT" | jq -r '.agent_type // empty')

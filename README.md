@@ -12,7 +12,7 @@ color
 ## Install
 
 ```bash
-git clone https://github.com/jpearson/claude-code-skill-statusline.git
+git clone https://github.com/johnpphd/claude-code-skill-statusline.git
 cd claude-code-skill-statusline
 bash install.sh
 ```
@@ -33,67 +33,40 @@ bash uninstall.sh
 
 Removes scripts, hooks, and statusLine. Preserves all other settings.
 
-## SKILL.md Init Block
+## Upgrading
 
-For skills to appear in the statusline, each SKILL.md needs a one-liner init block at the top.
+Pull and re-run `bash install.sh`. The installer removes the old PostToolUse Bash hook (`copy-skill-to-session.sh`) and adds the new ones.
 
-**Easiest way:** Run this prompt in Claude Code and it will add the block to all your SKILL.md files automatically:
-
-> Add the statusline skill-init block to all my SKILL.md files. See ~/.claude/scripts/statusline/ for the format and skills/example-skill/SKILL.md for an example.
-
-**Manual way:** Add this to the top of each SKILL.md, replacing `my-skill-name` with the skill's display name (e.g., `agent-orchestrator`, `verify`):
-
-```markdown
-<skill-init>
-Run this command silently at skill load: `_d="/tmp/.claude-$(printf '%s' "${CLAUDE_PROJECT_DIR:-$(pwd)}" | (md5 -q 2>/dev/null || md5sum | cut -d' ' -f1) | cut -c1-12)"; mkdir -p "$_d" 2>/dev/null; echo "my-skill-name" > "$_d/.claude-skill-active"`
-</skill-init>
-```
-
-See [`skills/example-skill/SKILL.md`](skills/example-skill/SKILL.md) for a working example.
+Older versions needed a `<skill-init>` block at the top of every SKILL.md. Hooks now record the active skill, so delete those blocks. A leftover block does no harm, but nothing reads the file it writes.
 
 ## The Problem
 
-Claude Code skills write their name to a temp file via a SKILL.md init block. When two sessions run in the same project, they overwrite the same file -- Session A shows Session B's skill.
-
-The obvious fix is to key the file by session ID. But **the Skill tool is internal to Claude Code** -- PreToolUse and PostToolUse hooks never fire for it. There's no direct hook observability into skill activation.
+The statusline should show the skill each session is running. When two sessions run in the same project, a single shared marker file lets Session A show Session B's skill. The marker has to be keyed by session ID.
 
 ## How It Works
 
-```
-SKILL.md init block (Bash tool)
-  writes -> /tmp/.claude-<hash>/.claude-skill-active  (project-scoped, shared)
+Two hooks write the marker, because a skill starts in one of two ways:
 
-PostToolUse Bash hook (copy-skill-to-session.sh)
-  detects write via "> " pattern in raw JSON
-  reads session_id from hook JSON
-  copies -> .claude-skill-active-<session_id>  (session-keyed, isolated)
+```
+PreToolUse hook, matcher Skill (mark-skill-active.sh)
+  fires when the model loads a skill
+  reads session_id and tool_input.skill from hook JSON
+  writes -> /tmp/.claude-<hash>/.claude-skill-active-<session_id>
+
+UserPromptSubmit hook (mark-skill-on-prompt.sh)
+  fires when the user types "/name args", which makes no Skill tool call
+  parses the leading /name from the prompt
+  writes the same marker only if name is a real skill or command on disk
 
 Statusline (statusline.sh)
-  extracts session_id from statusline JSON
-  reads .claude-skill-active-<session_id> first
-  falls back to .claude-skill-active if no session-keyed file
+  reads .claude-skill-active-<session_id> for its own session_id
 
 SessionStart hook (session-cleanup.sh)
-  clears stale skill files on new session start
+  clears this session's marker on a fresh start (kept on resume and compact)
+  sweeps markers older than 7 days
 ```
 
-**Key insight:** The SKILL.md init block runs as a Bash tool call. PostToolUse hooks DO fire for the Bash tool, and hook JSON includes `session_id`. So we intercept the init block's Bash command, extract the session ID, and copy the shared file to a session-keyed path.
-
-### End-to-End Flow
-
-```
-Session A invokes /my-skill:
-  1. Skill tool fires (internal -- no hooks)
-  2. SKILL.md init block runs as Bash tool
-  3. Bash writes "my-skill" to .claude-skill-active
-  4. PostToolUse Bash hook fires, detects "> " + ".claude-skill-active"
-  5. Extracts session_id from JSON, copies to .claude-skill-active-<A>
-  6. Statusline reads .claude-skill-active-<A> -> shows /my-skill
-
-Session B invokes /other-skill:
-  1-5. Same flow, writes .claude-skill-active-<B>
-  6. Session A still shows /my-skill. Session B shows /other-skill.
-```
+The last skill invoked wins. The disk check reads `.claude/skills/<name>/SKILL.md` and `.claude/commands/<name>.md` in the project, then the same under `~/.claude`. A prompt like "/tmp is full" matches neither and leaves the marker alone. Plugin skills (`plugin:skill`) skip the disk check and show their full name.
 
 ## Dead Ends We Tried
 
@@ -101,12 +74,9 @@ These approaches don't work. Documenting them here to save you the debugging tim
 
 | Approach | Why It Fails |
 |----------|-------------|
-| PreToolUse/PostToolUse Skill hooks | Skill tool is internal to Claude Code. Hooks **never fire**. Confirmed with debug file writes -- zero output. |
 | PPID as session key | Claude Code spawns `bash -c "bash hook.sh"`. PPID = ephemeral intermediate shell PID, not Claude Code PID. Different every invocation. |
 | `CLAUDE_SESSION_ID` env var | Exists but **empty** in v2.1.x. Not populated in the Bash tool environment. |
 | Two hooks under one matcher | They **share stdin**. First hook does `cat`, consumes everything. Second hook gets empty input. |
-| Pattern matching on `echo "` in JSON | JSON escapes quotes as `\"`. Pattern `*'echo "'*` doesn't match `echo \"` in raw JSON. |
-| Broad pattern `*.claude-skill-active*` | Triggers on `cat` and `ls` commands that READ the file, not just writes. Overwrites session-keyed file with stale data. |
 
 ## Customization
 
@@ -137,14 +107,14 @@ The `██` block at the start of the statusline is colored uniquely per projec
 
 ### JSON Parser
 
-The scripts use `python3` for session ID extraction (from hook JSON) and `jq` for statusline field extraction.
+The scripts use `python3` to parse hook JSON and `jq` for statusline field extraction.
 
 ## Requirements
 
 - **bash** (4.0+)
 - **python3** -- for JSON parsing in hooks (available on macOS and most Linux)
 - **jq** -- for JSON field extraction in the statusline ([install](https://jqlang.github.io/jq/download/))
-- **Claude Code** v2.1+ -- for `statusLine`, `PostToolUse` hooks, and `session_id` in hook JSON
+- **Claude Code** with `statusLine`, a `PreToolUse` hook that fires on the Skill tool, `UserPromptSubmit` hooks, and `session_id` in hook JSON
 
 ## Compatibility
 

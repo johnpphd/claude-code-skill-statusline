@@ -40,48 +40,19 @@ info "Installing scripts to $INSTALL_DIR/"
 mkdir -p "$INSTALL_DIR"
 cp "$REPO_DIR/scripts/_proj-hash.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/scripts/_string_to_color.sh" "$INSTALL_DIR/"
-cp "$REPO_DIR/scripts/copy-skill-to-session.sh" "$INSTALL_DIR/"
+cp "$REPO_DIR/scripts/mark-skill-active.sh" "$INSTALL_DIR/"
+cp "$REPO_DIR/scripts/mark-skill-on-prompt.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/scripts/session-cleanup.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/scripts/statusline.sh" "$INSTALL_DIR/"
+# Older versions installed this script. Its hook entry is removed below.
+rm -f "$INSTALL_DIR/copy-skill-to-session.sh"
 chmod +x "$INSTALL_DIR"/*.sh
 
 # --- Merge settings.json ---
 
-# The hooks and statusLine we want to add
-STATUSLINE_HOOKS=$(cat <<'HOOKJSON'
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/scripts/statusline/session-cleanup.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/scripts/statusline/copy-skill-to-session.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/scripts/statusline/statusline.sh"
-  }
-}
-HOOKJSON
-)
+# The hooks and statusLine we want to add. settings-example.json is the single
+# source, so the documented example and the install cannot drift.
+STATUSLINE_HOOKS=$(cat "$REPO_DIR/settings-example.json")
 
 if [ ! -f "$SETTINGS" ]; then
   info "Creating $SETTINGS"
@@ -94,32 +65,36 @@ else
   info "Backup saved to $SETTINGS.bak"
 
   # Merge using jq:
-  # - For each hook category (SessionStart, PostToolUse), append our entries
-  #   to existing arrays (skip if our command is already present)
+  # - Drop the PostToolUse Bash hook that older versions installed. Its script
+  #   no longer exists, so leaving the entry would fail on every Bash call.
+  # - For each hook event we own, append our entry unless its command is
+  #   already present, so re-running the installer adds no duplicates.
   # - Set statusLine (overwrites any existing statusLine)
   jq --argjson new "$STATUSLINE_HOOKS" '
-    # Helper: check if a command string already exists in a hook category array
     def has_command($cmd):
-      . as $arr | any($arr[]; .hooks[]? | .command == $cmd);
+      any(.[]; .hooks[]? | .command == $cmd);
 
-    # Merge hook arrays
+    def add_event($event):
+      ($new.hooks[$event][0].hooks[0].command) as $cmd |
+      .hooks[$event] //= [] |
+      if (.hooks[$event] | has_command($cmd)) then .
+      else .hooks[$event] += $new.hooks[$event]
+      end;
+
     .hooks //= {} |
 
-    # SessionStart
-    .hooks.SessionStart //= [] |
-    (if (.hooks.SessionStart | has_command("bash ~/.claude/scripts/statusline/session-cleanup.sh"))
-     then .
-     else .hooks.SessionStart += $new.hooks.SessionStart
-     end) |
+    (if .hooks.PostToolUse then
+      .hooks.PostToolUse |= (
+        map(.hooks |= map(select(.command != "bash ~/.claude/scripts/statusline/copy-skill-to-session.sh")))
+        | map(select(.hooks | length > 0))
+      ) |
+      (if .hooks.PostToolUse == [] then del(.hooks.PostToolUse) else . end)
+    else . end) |
 
-    # PostToolUse -- need to check if our specific matcher+command combo exists
-    .hooks.PostToolUse //= [] |
-    (if (.hooks.PostToolUse | has_command("bash ~/.claude/scripts/statusline/copy-skill-to-session.sh"))
-     then .
-     else .hooks.PostToolUse += $new.hooks.PostToolUse
-     end) |
+    add_event("SessionStart") |
+    add_event("PreToolUse") |
+    add_event("UserPromptSubmit") |
 
-    # StatusLine (simple overwrite)
     .statusLine = $new.statusLine
   ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 fi
@@ -222,21 +197,9 @@ info "Installed successfully!"
 echo ""
 echo "Next steps:"
 echo "  1. Restart Claude Code to pick up new settings"
-echo "  2. Add skill-init blocks to your SKILL.md files so active skills"
-echo "     appear in the statusline. Run this prompt in Claude Code:"
-echo ""
-echo -e "     ${GREEN}Add the statusline skill-init block to all my SKILL.md files.${NC}"
-echo -e "     ${GREEN}See ~/.claude/scripts/statusline/ for the format and${NC}"
-echo -e "     ${GREEN}skills/example-skill/SKILL.md for an example.${NC}"
-echo ""
-echo "     Or manually add this to the top of each SKILL.md:"
-echo ""
-echo "     <skill-init>"
-echo '     Run this command silently at skill load: `_d="/tmp/.claude-$(printf'
-echo "     '%s' \"\\\${CLAUDE_PROJECT_DIR:-\\\$(pwd)}\" | (md5 -q 2>/dev/null ||"
-echo '     md5sum | cut -d'"'"' '"'"' -f1) | cut -c1-12)"; mkdir -p "$_d"'
-echo '     2>/dev/null; echo "SKILL-NAME" > "$_d/.claude-skill-active"`'
-echo "     </skill-init>"
+echo "  2. If you used an older version, delete the <skill-init> block from"
+echo "     your SKILL.md files. Hooks now record the active skill, so the block"
+echo "     is dead code."
 if [ "${_prompt_installed:-0}" = "1" ]; then
   echo ""
   echo -e "  ${YELLOW}IMPORTANT:${NC} To activate your new terminal prompt, run:"
